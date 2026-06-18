@@ -30,6 +30,10 @@ func handleInterrupt(context *unsafe.Pointer, vector uint8) {
 			// spin
 		}
 	}
+	if vector == 32 {
+    TimerHandler()
+    return
+    }
 
 	// For IRQs, we just acknowledge and return (for now).
 	if vector >= 32 && vector < 48 {
