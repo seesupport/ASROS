@@ -80,7 +80,10 @@ func handleException(vector uint8, name string) {
 }
 
 // HandlerIRQ0..IRQ15 are for IRQs.
-func HandlerIRQ0()  { handleIRQ(0) }
+// HandlerIRQ0 calls TimerHandler
+func HandlerIRQ0() {
+	interrupts.TimerHandler()
+}
 func HandlerIRQ1()  { handleIRQ(1) }
 // ... up to 15
 func HandlerIRQ15() { handleIRQ(15) }
