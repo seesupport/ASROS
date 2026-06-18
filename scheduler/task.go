@@ -32,6 +32,7 @@ type TaskControlBlock struct {
 	// Task metadata
 	PID         uint32
 	Priority    int
+	BasePriority int // original priority before boosting
 	State       TaskState
 	Stack       unsafe.Pointer // allocated stack memory
 	StackSize   uint32
@@ -74,6 +75,7 @@ func NewTask(entry func(), priority int) *TaskControlBlock {
 	tcb.PID = nextPID
 	nextPID++
 	tcb.Priority = priority
+	tcb.BasePriority = priority
 	tcb.State = StateReady
 	tcb.Stack = stackPtr
 	tcb.StackSize = stackSize

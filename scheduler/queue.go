@@ -2,13 +2,83 @@ package scheduler
 
 const PRIORITY_LEVELS = 32 // we can support 0..31, 0 highest
 
-// RunQueue is a doubly linked list of tasks for a given priority.
-type RunQueue struct {
+// List is a doubly linked list of tasks.
+type List struct {
 	head *TaskControlBlock
 	tail *TaskControlBlock
 }
 
-var runQueues [PRIORITY_LEVELS]RunQueue
+// AddTail adds a task to the end of the list.
+func (l *List) AddTail(task *TaskControlBlock) {
+	if task == nil {
+		return
+	}
+	task.Next = nil
+	task.Prev = l.tail
+	if l.tail != nil {
+		l.tail.Next = task
+	} else {
+		l.head = task
+	}
+	l.tail = task
+}
+
+// AddHead adds a task to the front of the list.
+func (l *List) AddHead(task *TaskControlBlock) {
+	if task == nil {
+		return
+	}
+	task.Prev = nil
+	task.Next = l.head
+	if l.head != nil {
+		l.head.Prev = task
+	} else {
+		l.tail = task
+	}
+	l.head = task
+}
+
+// Remove removes a task from the list.
+func (l *List) Remove(task *TaskControlBlock) {
+	if task == nil {
+		return
+	}
+	if task.Prev != nil {
+		task.Prev.Next = task.Next
+	} else {
+		l.head = task.Next
+	}
+	if task.Next != nil {
+		task.Next.Prev = task.Prev
+	} else {
+		l.tail = task.Prev
+	}
+	task.Next = nil
+	task.Prev = nil
+}
+
+// PopHead removes and returns the first task.
+func (l *List) PopHead() *TaskControlBlock {
+	if l.head == nil {
+		return nil
+	}
+	task := l.head
+	l.Remove(task)
+	return task
+}
+
+// IsEmpty returns true if the list has no tasks.
+func (l *List) IsEmpty() bool {
+	return l.head == nil
+}
+
+// PeekHead returns the first task without removing it.
+func (l *List) PeekHead() *TaskControlBlock {
+	return l.head
+}
+
+// RunQueues (adapted to use List)
+var runQueues [PRIORITY_LEVELS]List
 var priorityBitmap uint32 // bit i set if runQueues[i] non-empty
 
 // enqueue adds a task to the appropriate run queue.
@@ -20,16 +90,7 @@ func enqueue(task *TaskControlBlock) {
 	if prio < 0 || prio >= PRIORITY_LEVELS {
 		return
 	}
-	q := &runQueues[prio]
-	task.Next = nil
-	task.Prev = q.tail
-	if q.tail != nil {
-		q.tail.Next = task
-	} else {
-		q.head = task
-	}
-	q.tail = task
-	// set bitmap
+	runQueues[prio].AddTail(task)
 	priorityBitmap |= (1 << uint(prio))
 }
 
@@ -50,28 +111,14 @@ func dequeue() *TaskControlBlock {
 		return nil
 	}
 	q := &runQueues[prio]
-	task := q.head
-	if task == nil {
-		// Clear bitmap if queue empty
-		priorityBitmap &^= (1 << prio)
-		return nil
-	}
-	q.head = task.Next
-	if q.head != nil {
-		q.head.Prev = nil
-	} else {
-		q.tail = nil
-	}
-	task.Next = nil
-	task.Prev = nil
-	// If queue becomes empty, clear bitmap
-	if q.head == nil {
+	task := q.PopHead()
+	if q.IsEmpty() {
 		priorityBitmap &^= (1 << prio)
 	}
 	return task
 }
 
-// removeTask removes a specific task from its queue (used for yielding or waiting).
+// removeTask removes a specific task from its queue.
 func removeTask(task *TaskControlBlock) {
 	if task == nil {
 		return
@@ -80,20 +127,8 @@ func removeTask(task *TaskControlBlock) {
 	if prio < 0 || prio >= PRIORITY_LEVELS {
 		return
 	}
-	q := &runQueues[prio]
-	if task.Prev != nil {
-		task.Prev.Next = task.Next
-	} else {
-		q.head = task.Next
-	}
-	if task.Next != nil {
-		task.Next.Prev = task.Prev
-	} else {
-		q.tail = task.Prev
-	}
-	task.Next = nil
-	task.Prev = nil
-	if q.head == nil {
+	runQueues[prio].Remove(task)
+	if runQueues[prio].IsEmpty() {
 		priorityBitmap &^= (1 << uint(prio))
 	}
 }

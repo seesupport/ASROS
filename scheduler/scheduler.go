@@ -20,7 +20,7 @@ func switchContext(current, next *TaskControlBlock)
 func Init() {
 	// Initialise run queues
 	for i := 0; i < PRIORITY_LEVELS; i++ {
-		runQueues[i] = RunQueue{}
+		runQueues[i] = List{}
 	}
 	priorityBitmap = 0
 
@@ -156,4 +156,54 @@ func CreateTask(entry func(), priority int) *TaskControlBlock {
 	task.State = StateReady
 	enqueue(task)
 	return task
+}
+
+// BlockTask removes the task from the ready queue and sets its state to Waiting.
+// It is added to the provided wait list (which is managed by the synchronisation primitive).
+func BlockTask(task *TaskControlBlock, waitList *List) {
+	if task == nil {
+		return
+	}
+	cpu.DisableInterrupts()
+	// Remove from ready queue
+	removeTask(task)
+	task.State = StateWaiting
+	// Add to wait list
+	waitList.AddTail(task)
+	cpu.EnableInterrupts()
+}
+
+// UnblockTask removes the task from its wait list and makes it ready.
+func UnblockTask(task *TaskControlBlock) {
+	if task == nil {
+		return
+	}
+	cpu.DisableInterrupts()
+	// The task's Prev/Next should be cleared by the list that owned it.
+	// We just set state and enqueue.
+	task.State = StateReady
+	enqueue(task)
+	cpu.EnableInterrupts()
+}
+
+// SetTaskPriority changes a task's priority, updating the run queue if necessary.
+func SetTaskPriority(task *TaskControlBlock, newPrio int) {
+	if task == nil || newPrio < 0 || newPrio >= PRIORITY_LEVELS {
+		return
+	}
+	cpu.DisableInterrupts()
+	if task.State == StateReady {
+		// Remove from current queue
+		removeTask(task)
+		task.Priority = newPrio
+		enqueue(task)
+	} else {
+		task.Priority = newPrio
+	}
+	cpu.EnableInterrupts()
+}
+
+// GetCurrentTask returns the currently running task.
+func GetCurrentTask() *TaskControlBlock {
+	return currentTask
 }

@@ -6,14 +6,46 @@ import (
 	"rtos/lib"
 	"rtos/mm"
 	"rtos/scheduler"
+	"rtos/sync"
 )
+
+var (
+	mutex sync.Mutex
+	shared int
+)
+
+func producer() {
+	for {
+		mutex.Lock()
+		shared++
+		lib.PrintString("Producer: ")
+		lib.PrintUint64(uint64(shared))
+		lib.PrintString("\n")
+		mutex.Unlock()
+		scheduler.Yield()
+	}
+}
+
+func consumer() {
+	for {
+		mutex.Lock()
+		if shared > 0 {
+			shared--
+			lib.PrintString("Consumer: ")
+			lib.PrintUint64(uint64(shared))
+			lib.PrintString("\n")
+		}
+		mutex.Unlock()
+		scheduler.Yield()
+	}
+}
 
 // KernelEntry is called from UEFI.
 //export KernelEntry
 func KernelEntry(imageHandle lib.EFIHandle, systemTable *lib.EFISystemTable) {
 	lib.SetSystemTable(systemTable)
 
-	lib.PrintString("\nRTOS for x86_64 (UEFI) - Phase 4\n")
+	lib.PrintString("\nRTOS for x86_64 (UEFI) - Phase 5\n")
 	lib.PrintString("Kernel entry successful.\n")
 
 	// Phase 1: memory map
@@ -55,14 +87,12 @@ func KernelEntry(imageHandle lib.EFIHandle, systemTable *lib.EFISystemTable) {
 	lib.PrintString("Initializing timer...\n")
 	interrupts.TimerInit()
 
-	// Create a test task
-	lib.PrintString("Creating test task...\n")
-	testTask := scheduler.CreateTask(testTaskFunc, 1)
-	if testTask == nil {
-		lib.PrintString("Failed to create test task\n")
-	} else {
-		lib.PrintString("Test task created\n")
-	}
+	// Phase 5: Synchronization
+	// Create producer and consumer tasks
+	lib.PrintString("Creating producer task...\n")
+	scheduler.CreateTask(producer, 2)
+	lib.PrintString("Creating consumer task...\n")
+	scheduler.CreateTask(consumer, 2)
 
 	lib.PrintString("Initializing scheduler...\n")
 	scheduler.Init()
@@ -73,13 +103,5 @@ func KernelEntry(imageHandle lib.EFIHandle, systemTable *lib.EFISystemTable) {
 	// Should never reach here
 	for {
 		cpu.Halt()
-	}
-}
-
-// testTaskFunc is a simple task that prints and yields.
-func testTaskFunc() {
-	for {
-		lib.PrintString("Hello from test task\n")
-		scheduler.Yield()
 	}
 }
