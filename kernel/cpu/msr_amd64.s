@@ -10,3 +10,19 @@ TEXT ·rdmsr(SB), NOSPLIT, $0-12
     // We'll return two uint32 via stack.
     // We'll simplify: return uint64.
     // Let's adjust.
+TEXT ·rdmsr(SB), NOSPLIT, $0-16
+    MOVQ msr+0(FP), CX
+    RDMSR
+    SHLQ $32, RDX
+    ORQ  RDX, RAX
+    MOVQ RAX, ret+8(FP)
+    RET
+
+// void wrmsr(uint32 msr, uint64 value)
+TEXT ·wrmsr(SB), NOSPLIT, $0-16
+    MOVQ msr+0(FP), CX
+    MOVQ value+8(FP), RAX
+    MOVQ RAX, RDX
+    SHRQ $32, RDX
+    WRMSR
+    RET
