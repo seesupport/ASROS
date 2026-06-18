@@ -5,6 +5,7 @@ import (
 	"rtos/interrupts"
 	"rtos/lib"
 	"rtos/mm"
+	"rtos/scheduler"
 )
 
 // KernelEntry is called from UEFI.
@@ -12,10 +13,10 @@ import (
 func KernelEntry(imageHandle lib.EFIHandle, systemTable *lib.EFISystemTable) {
 	lib.SetSystemTable(systemTable)
 
-	lib.PrintString("\nRTOS for x86_64 (UEFI) - Phase 3\n")
+	lib.PrintString("\nRTOS for x86_64 (UEFI) - Phase 4\n")
 	lib.PrintString("Kernel entry successful.\n")
 
-	// Phase 1: get memory map
+	// Phase 1: memory map
 	boot := systemTable.Boot
 	if boot == nil {
 		lib.PrintString("ERROR: Boot services not available\n")
@@ -44,20 +45,7 @@ func KernelEntry(imageHandle lib.EFIHandle, systemTable *lib.EFISystemTable) {
 	lib.PrintString("Initializing heap allocator...\n")
 	mm.InitHeap()
 
-	// Test allocation
-	lib.PrintString("Testing slab allocator...\n")
-	p1 := mm.Alloc(64)
-	if p1 != nil {
-		lib.PrintString("Allocated 64 bytes at 0x")
-		lib.PrintHex64(uint64(uintptr(p1)))
-		lib.PrintString("\n")
-		mm.Free(p1, 64)
-		lib.PrintString("Freed\n")
-	} else {
-		lib.PrintString("Allocation failed\n")
-	}
-
-	// Now set up IDT (needs to be done after paging? It can be before, but we do it after for clarity)
+	// Phase 4: Scheduler
 	lib.PrintString("Setting up IDT...\n")
 	cpu.InitIDT()
 
@@ -67,13 +55,31 @@ func KernelEntry(imageHandle lib.EFIHandle, systemTable *lib.EFISystemTable) {
 	lib.PrintString("Initializing timer...\n")
 	interrupts.TimerInit()
 
-	// Enable interrupts
-	lib.PrintString("Enabling interrupts...\n")
-	cpu.EnableInterrupts()
+	// Create a test task
+	lib.PrintString("Creating test task...\n")
+	testTask := scheduler.CreateTask(testTaskFunc, 1)
+	if testTask == nil {
+		lib.PrintString("Failed to create test task\n")
+	} else {
+		lib.PrintString("Test task created\n")
+	}
 
-	lib.PrintString("Phase 3 complete. Idling with interrupts enabled.\n")
+	lib.PrintString("Initializing scheduler...\n")
+	scheduler.Init()
+
+	lib.PrintString("Starting scheduler...\n")
+	scheduler.Start()
+
+	// Should never reach here
 	for {
-		// Wait for interrupts
 		cpu.Halt()
+	}
+}
+
+// testTaskFunc is a simple task that prints and yields.
+func testTaskFunc() {
+	for {
+		lib.PrintString("Hello from test task\n")
+		scheduler.Yield()
 	}
 }
