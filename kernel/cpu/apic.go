@@ -89,5 +89,8 @@ func ioapicRedirect(irq uint8, vector uint8, flags uint32) {
 //go:linkname rdmsr
 func rdmsr(msr uint32) (low uint32, high uint32)
 
+// rdmsr returns the 64-bit value of the MSR.
+func rdmsr(msr uint32) uint64
+
 //go:linkname wrmsr
 func wrmsr(msr uint32, low uint32, high uint32)
