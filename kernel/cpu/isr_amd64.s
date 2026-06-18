@@ -190,3 +190,10 @@ GEN_STUB(47)
 // We'll also define a default stub that loads a vector from a global? Not feasible.
 // So we'll go with the approach of generating all stubs.
 // To keep the code small, we'll generate using a script in the build process.
+
+
+
+
+
+// Include generated stubs
+#include "isr_stubs.asm"
